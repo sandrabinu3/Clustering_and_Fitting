@@ -178,3 +178,34 @@ def predict_with_confidence_intervals(func, popt, pcov, x):
 
 predict_future_values(r"climate_change_wbdata (1).csv", [
                         'India', 'European Union', 'United States', 'Canada'], ['Electricity production from hydroelectric sources (% of total)'], 1980, 2030)
+
+def plot_correlation_heatmap(df, size=6):
+    """
+    Plots a correlation heatmap for the given dataframe.
+
+    Parameters:
+    - df (pd.DataFrame): Dataframe for correlation analysis.
+    - size (int): Size of the heatmap.
+
+    Returns:
+    - None
+    """
+    corr = df.corr()
+    
+    # Print the correlation matrix values
+    print("Correlation Matrix:")
+    print(corr)
+
+    fig, ax = plt.subplots(figsize=(size, size))
+    im = ax.matshow(corr, cmap='ocean_r')
+
+    ax.set_xticks(range(len(corr.columns)))
+    ax.set_xticklabels(corr.columns, rotation=90)
+    ax.set_yticks(range(len(corr.columns)))
+    ax.set_yticklabels(corr.columns)
+
+    cbar = fig.colorbar(im)
+
+    ax.set_title('Correlation Heatmap of selected countries')
+
+    plt.tight_layout()

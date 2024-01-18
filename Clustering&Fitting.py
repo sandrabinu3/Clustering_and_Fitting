@@ -49,7 +49,7 @@ def read_file_and_process_data(filename):
     return df_years, df_countries
 
 
-def subset_data_by_countries_and_indicators(df_years, countries, indicators):
+def clean_and_transposed_df(df_years, countries, indicators):
     """
     Subsets data based on selected countries and indicators.
 
@@ -63,40 +63,9 @@ def subset_data_by_countries_and_indicators(df_years, countries, indicators):
     """
     years = list(range(1980, 2014))
     df_subset = df_years.loc[(countries, indicators), years]
+    # transpose the cleaned df
     df_subset = df_subset.transpose()
     return df_subset
-
-
-
-def plot_correlation_heatmap(df, size=6):
-    """
-    Plots a correlation heatmap for the given dataframe.
-
-    Parameters:
-    - df (pd.DataFrame): Dataframe for correlation analysis.
-    - size (int): Size of the heatmap.
-
-    Returns:
-    - None
-    """
-    corr = df.corr()
-    
-    # Print the correlation matrix values
-    print("Correlation Matrix:")
-    print(corr)
-
-    fig, ax = plt.subplots(figsize=(size, size))
-    im = ax.matshow(corr, cmap='ocean_r')
-
-    ax.set_xticks(range(len(corr.columns)))
-    ax.set_xticklabels(corr.columns, rotation=90)
-    ax.set_yticks(range(len(corr.columns)))
-    ax.set_yticklabels(corr.columns)
-
-    cbar = fig.colorbar(im)
-
-    ax.set_title('Correlation Heatmap of selected countries')
-    plt.tight_layout()
 
 
 def normalize_dataframe(df):
@@ -125,7 +94,7 @@ def plot_normalized_dataframe(df_normalized):
     - None
     """
     # Set Seaborn style
-    sns.set(style="whitegrid", palette="pastel")
+    sns.set(style="whitegrid", palette="deep")
 
     # Create a figure and axis
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -149,6 +118,7 @@ def plot_normalized_dataframe(df_normalized):
     # Add legend
     ax.legend(title='Legend', title_fontsize='12', fontsize='10', loc='upper left', bbox_to_anchor=(1, 1))
 
+    plt.savefig('normailzed_plot.png')
     # Show the plot
     plt.show()
 
@@ -196,8 +166,10 @@ def plot_clustered_data(df, cluster_labels, cluster_centers):
     ax.set_title("K-Means Clustering Results", fontsize=14)
 
     ax.grid(True)
+    ax.set_xlabel('Electricity production from hydroelectric sources (% of total)')
+    ax.set_ylabel('Electricity production from coal sources (% of total)')
     plt.colorbar(scatter)
-
+    plt.savefig('Clusters.png')
     plt.show()
 
 
@@ -276,7 +248,7 @@ def calculate_error_ranges(xdata, ydata, popt, pcov, alpha=0.05):
 
 def predict_future_values(energy_use_data, countries, indicators, start_year, end_year, prediction_years):
     """
-    Predicts future values using exponential growth fitting.
+    Predicts and plots future values using exponential growth fitting.
 
     Parameters:
     - energy_use_data (pd.DataFrame): Processed energy use data.
@@ -327,12 +299,12 @@ def predict_future_values(energy_use_data, countries, indicators, start_year, en
         lower_bound = predicted_values - repeated_ci
         upper_bound = predicted_values + repeated_ci
         ax.plot(extended_years, predicted_values,
-                label=f"{country} - Predicted", linestyle='--', marker='x')
+                label=f"{country} - Predicted", linestyle='--', marker='x',color='indigo')
         ax.fill_between(extended_years, lower_bound, upper_bound,
-                color='gray', alpha=0.2, label='Confidence Interval')
+                color='yellow', alpha=0.2, label='Confidence Interval')
         
         point_at_2025 = predicted_values[-1]
-        ax.scatter(2025, point_at_2025, color='red', marker='o')
+        ax.scatter(2025, point_at_2025, color='green', marker='o')
         ax.annotate(f'{point_at_2025:.2f}', (2025, point_at_2025),
                     textcoords="offset points", xytext=(0,10), ha='center')
     ax.set_xlabel('Year')
@@ -340,6 +312,7 @@ def predict_future_values(energy_use_data, countries, indicators, start_year, en
     ax.set_title(', '.join(indicators))
     ax.set_xticks(np.arange(1980,2026,5))
     ax.legend(loc='best')
+    plt.savefig('fit_curve_prediction.png')
     plt.show()
 
 
@@ -351,8 +324,8 @@ def main():
 
     selected_indicators = [
         'Electricity production from hydroelectric sources (% of total)', 'Electricity production from coal sources (% of total)']
-    selected_countries = ['India', 'United States']
-    selected_data = subset_data_by_countries_and_indicators(
+    selected_countries = ['India', 'United States','European Union']
+    selected_data = clean_and_transposed_df(
         df_years, selected_countries, selected_indicators)
     normalized_data = normalize_dataframe(selected_data)
 
@@ -369,8 +342,6 @@ def main():
                       ['India'],
                       ['Electricity production from hydroelectric sources (% of total)'],
                       1980, 2014, range(2015, 2026))
-
-    plot_correlation_heatmap(selected_data, size=8)
 
     plot_normalized_dataframe(normalized_data)
 
