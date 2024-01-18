@@ -67,6 +67,7 @@ def subset_data_by_countries_and_indicators(df_years, countries, indicators):
     return df_subset
 
 
+
 def plot_correlation_heatmap(df, size=6):
     """
     Plots a correlation heatmap for the given dataframe.
@@ -131,9 +132,11 @@ def plot_normalized_dataframe(df_normalized):
 
     # Plot the data
     df_normalized.plot(kind='bar', stacked=True, ax=ax)
+    years = np.arange(1980, 2015)
 
     # Customize plot details
-    ax.set_xticklabels(ax.get_xticklabels(), rotation=45, ha='right')
+    ax.set_xticks(np.arange(len(years)))
+    ax.set_xticklabels(years, rotation=45, ha='right')
     ax.set_title('Stacked Bar Chart of Normalized Data', fontsize=16)
     ax.set_xlabel('Year', fontsize=14)
     ax.set_ylabel('Value', fontsize=14)
@@ -287,14 +290,17 @@ def predict_future_values(energy_use_data, countries, indicators, start_year, en
     """
     data = filter_energy_use_data(energy_use_data, countries,
                                   indicators, start_year, end_year)
+    
 
     growth_rate = np.zeros(data.shape)
     for i in range(data.shape[0]):
         popt, pcov = curve_fit(
             exponential_growth_function, np.arange(data.shape[1]), data.iloc[i])
+        
         ci = calculate_error_ranges(
             np.arange(data.shape[1]), data.iloc[i], popt, pcov)
         growth_rate[i] = popt[1]
+    
 
         # Print the values
         print(f"\nCountry: {data.index.get_level_values('Country')[i]}")
@@ -303,16 +309,28 @@ def predict_future_values(energy_use_data, countries, indicators, start_year, en
         print("Covariance Matrix (pcov):", pcov)
         print("Confidence Intervals (ci):", ci)
 
+    future_years = np.arange(start_year, end_year+1)
+
     fig, ax = plt.subplots()
     for i in range(data.shape[0]):
-        ax.plot(np.arange(data.shape[1]), data.iloc[i],
-                label=data.index.get_level_values('Country')[i])
+        country = data.index.get_level_values('Country')[i]
+        indicator = data.index.get_level_values('Indicator Name')[i]
+        repeated_ci = np.repeat(ci, data.shape[1] // len(ci) + 1)[:data.shape[1]]
+
+        ax.plot(np.arange(start_year, end_year+1), data.loc[(country, indicator)],
+                label=country)
+        ax.fill_between(np.arange(start_year, end_year+1),
+                        data.loc[(country, indicator)] - repeated_ci,
+                        data.loc[(country, indicator)] + repeated_ci,
+                        color='gray', alpha=0.2, label='Confidence Interval')
+
     ax.set_xlabel('Year')
     ax.set_ylabel('Indicator Value')
     ax.set_title(', '.join(indicators))
-    ax.set_xticks(np.arange(start_year, end_year+1))
     ax.legend(loc='best')
     plt.show()
+
+
 
 
 def main():
@@ -321,10 +339,11 @@ def main():
 
     selected_indicators = [
         'Electricity production from hydroelectric sources (% of total)', 'Electricity production from coal sources (% of total)']
-    selected_countries = ['India', 'United States', 'China', 'Australia', 'Canada']
+    selected_countries = ['India', 'United States']
     selected_data = subset_data_by_countries_and_indicators(
         df_years, selected_countries, selected_indicators)
-
+    print('//////////////////')
+    print(selected_data)
     normalized_data = normalize_dataframe(selected_data)
 
     num_clusters = 3
@@ -337,7 +356,7 @@ def main():
     plot_clustered_data(normalized_data, cluster_labels, cluster_centers)
 
     predict_future_values(r"climate_change_wbdata (1).csv", [
-                          'India', 'European Union', 'United States', 'Canada'], ['Electricity production from hydroelectric sources (% of total)'], 1980, 2014)
+                           'India', 'European Union', 'United States'], ['Electricity production from hydroelectric sources (% of total)'], 1980, 2014)
 
     plot_correlation_heatmap(selected_data, size=8)
 
