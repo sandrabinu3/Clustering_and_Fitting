@@ -274,7 +274,7 @@ def calculate_error_ranges(xdata, ydata, popt, pcov, alpha=0.05):
     return ci
 
 
-def predict_future_values(energy_use_data, countries, indicators, start_year, end_year):
+def predict_future_values(energy_use_data, countries, indicators, start_year, end_year, prediction_years):
     """
     Predicts future values using exponential growth fitting.
 
@@ -284,23 +284,21 @@ def predict_future_values(energy_use_data, countries, indicators, start_year, en
     - indicators (list): List of indicator names.
     - start_year (int): Start year for prediction.
     - end_year (int): End year for prediction.
+    - prediction_years (list): Years for which to predict values.
 
     Returns:
     - None
     """
-    data = filter_energy_use_data(energy_use_data, countries,
-                                  indicators, start_year, end_year)
-    
+    data = filter_energy_use_data(energy_use_data, countries, indicators, start_year, end_year)
 
     growth_rate = np.zeros(data.shape)
     for i in range(data.shape[0]):
         popt, pcov = curve_fit(
             exponential_growth_function, np.arange(data.shape[1]), data.iloc[i])
-        
+
         ci = calculate_error_ranges(
             np.arange(data.shape[1]), data.iloc[i], popt, pcov)
         growth_rate[i] = popt[1]
-    
 
         # Print the values
         print(f"\nCountry: {data.index.get_level_values('Country')[i]}")
@@ -310,6 +308,7 @@ def predict_future_values(energy_use_data, countries, indicators, start_year, en
         print("Confidence Intervals (ci):", ci)
 
     future_years = np.arange(start_year, end_year+1)
+    extended_years = np.arange(start_year, 2026)  # Extend prediction to 2030
 
     fig, ax = plt.subplots()
     for i in range(data.shape[0]):
@@ -317,16 +316,29 @@ def predict_future_values(energy_use_data, countries, indicators, start_year, en
         indicator = data.index.get_level_values('Indicator Name')[i]
         repeated_ci = np.repeat(ci, data.shape[1] // len(ci) + 1)[:data.shape[1]]
 
-        ax.plot(np.arange(start_year, end_year+1), data.loc[(country, indicator)],
-                label=country)
-        ax.fill_between(np.arange(start_year, end_year+1),
-                        data.loc[(country, indicator)] - repeated_ci,
-                        data.loc[(country, indicator)] + repeated_ci,
-                        color='gray', alpha=0.2, label='Confidence Interval')
+        # Plot historical data
+        ax.plot(future_years, data.loc[(country, indicator)],
+                label=f"{country} - Historical", linestyle='-', marker='o')
 
+        # Predict and plot future values with confidence interval
+        predicted_values = exponential_growth_function(extended_years - start_year, *popt)
+        print(predicted_values)
+        repeated_ci = np.repeat(ci, len(extended_years))[:len(predicted_values)]  # Adjust the length of repeated_ci
+        lower_bound = predicted_values - repeated_ci
+        upper_bound = predicted_values + repeated_ci
+        ax.plot(extended_years, predicted_values,
+                label=f"{country} - Predicted", linestyle='--', marker='x')
+        ax.fill_between(extended_years, lower_bound, upper_bound,
+                color='gray', alpha=0.2, label='Confidence Interval')
+        
+        point_at_2025 = predicted_values[-1]
+        ax.scatter(2025, point_at_2025, color='red', marker='o')
+        ax.annotate(f'{point_at_2025:.2f}', (2025, point_at_2025),
+                    textcoords="offset points", xytext=(0,10), ha='center')
     ax.set_xlabel('Year')
-    ax.set_ylabel('Indicator Value')
+    ax.set_ylabel('Electricity production from hydro (%)')
     ax.set_title(', '.join(indicators))
+    ax.set_xticks(np.arange(1980,2026,5))
     ax.legend(loc='best')
     plt.show()
 
@@ -342,8 +354,6 @@ def main():
     selected_countries = ['India', 'United States']
     selected_data = subset_data_by_countries_and_indicators(
         df_years, selected_countries, selected_indicators)
-    print('//////////////////')
-    print(selected_data)
     normalized_data = normalize_dataframe(selected_data)
 
     num_clusters = 3
@@ -355,8 +365,10 @@ def main():
     print(cluster_centers)
     plot_clustered_data(normalized_data, cluster_labels, cluster_centers)
 
-    predict_future_values(r"climate_change_wbdata (1).csv", [
-                           'India', 'European Union', 'United States'], ['Electricity production from hydroelectric sources (% of total)'], 1980, 2014)
+    predict_future_values(r"climate_change_wbdata (1).csv",
+                      ['India'],
+                      ['Electricity production from hydroelectric sources (% of total)'],
+                      1980, 2014, range(2015, 2026))
 
     plot_correlation_heatmap(selected_data, size=8)
 
