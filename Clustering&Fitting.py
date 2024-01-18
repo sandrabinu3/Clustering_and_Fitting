@@ -183,7 +183,7 @@ def plot_clustered_data(df, cluster_labels, cluster_centers):
 
     fig, ax = plt.subplots(figsize=(8, 6))
     scatter = ax.scatter(df.iloc[:, 0], df.iloc[:, 1],
-                         c=cluster_labels, cmap='PRGn')
+                         c=cluster_labels, cmap='viridis')
 
     ax.scatter(cluster_centers[:, 0], cluster_centers[:,
                1], s=200, marker='2', c='black')
@@ -310,6 +310,7 @@ def predict_future_values(energy_use_data, countries, indicators, start_year, en
     ax.set_xlabel('Year')
     ax.set_ylabel('Indicator Value')
     ax.set_title(', '.join(indicators))
+    ax.set_xticks(np.arange(start_year, end_year+1))
     ax.legend(loc='best')
     plt.show()
 
