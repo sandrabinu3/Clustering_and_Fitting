@@ -80,6 +80,7 @@ def normalize_dataframe(df):
     """
     scaler = StandardScaler()
     df_normalized = pd.DataFrame(scaler.fit_transform(df), columns=df.columns)
+    # print(df_normalized)
     return df_normalized
 
 
@@ -122,8 +123,22 @@ def plot_normalized_dataframe(df_normalized):
     # Show the plot
     plt.show()
 
+def calculate_silhouette_score(df, cluster_labels):
+    """
+    Calculates the silhouette score for the clustering.
 
-def perform_kmeans_clustering(df, num_clusters):
+    Parameters:
+    - df (pd.DataFrame): Dataframe for clustering.
+    - cluster_labels (np.array): Labels assigned to each data point.
+
+    Returns:
+    - silhouette_score (float): Silhouette score.
+    """
+    silhouette_avg = silhouette_score(df, cluster_labels)
+    print(f"Silhouette Score: {silhouette_avg}")
+    return silhouette_avg
+
+def perform_kmeans_clustering(num_clusters,df):
     """
     Performs K-Means clustering on the given dataframe.
 
@@ -135,9 +150,11 @@ def perform_kmeans_clustering(df, num_clusters):
     - cluster_labels (np.array): Labels assigned to each data point.
     """
     kmeans = KMeans(n_clusters=num_clusters, random_state=42)
+    print(df)
     cluster_labels = kmeans.fit_predict(df)
+    cluster_centers = kmeans.cluster_centers_
 
-    return cluster_labels
+    return cluster_labels,cluster_centers
 
 
 def plot_clustered_data(df, cluster_labels, cluster_centers):
@@ -324,15 +341,15 @@ def main():
 
     selected_indicators = [
         'Electricity production from hydroelectric sources (% of total)', 'Electricity production from coal sources (% of total)']
-    selected_countries = ['India', 'United States','European Union']
+    selected_countries = ['India']
     selected_data = clean_and_transposed_df(
         df_years, selected_countries, selected_indicators)
     normalized_data = normalize_dataframe(selected_data)
 
+    
+
     num_clusters = 3
-    kmeans = KMeans(n_clusters=num_clusters, random_state=42)
-    cluster_labels = kmeans.fit_predict(normalized_data)
-    cluster_centers = kmeans.cluster_centers_
+    cluster_labels,cluster_centers=perform_kmeans_clustering(num_clusters,normalized_data)
 
     print("Cluster Centers:")
     print(cluster_centers)
