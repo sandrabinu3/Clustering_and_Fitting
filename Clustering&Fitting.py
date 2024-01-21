@@ -169,7 +169,7 @@ def plot_clustered_data(df, cluster_labels, cluster_centers):
     fig, ax = plt.subplots(figsize=(8, 6))
     # plot the clusters 
     scatter = ax.scatter(df.iloc[:, 0], df.iloc[:, 1],
-                         c=cluster_labels, cmap='viridis')
+                         c=cluster_labels, cmap='winter')
     # plot the cluster centers
     ax.scatter(cluster_centers[:, 0], cluster_centers[:,
                1], s=200, marker='2', c='red')
@@ -181,7 +181,7 @@ def plot_clustered_data(df, cluster_labels, cluster_centers):
     ax.grid(True)
     plt.colorbar(scatter)
     # save the fig
-    # plt.savefig('Clusters.png')
+    plt.savefig('Clusters.png')
     plt.show()
 
 def select_one_country_from_each_cluster(df,cluster_labels, countries):
@@ -328,9 +328,9 @@ def predict_future_values(energy_use_data, countries, indicators, start_year, en
             ax.annotate(f'{point_at_2025:.2f}', (2025, point_at_2025),
                         textcoords="offset points", xytext=(0,10), ha='center')
         # set the labels and title
-        ax.set_xlabel('Year')
-        ax.set_ylabel('Electricity production from coal (%)')
-        ax.set_title(f'{country}')
+        ax.set_xlabel('Year',fontsize=12)
+        ax.set_ylabel('Electricity production from coal (%)',fontsize=12)
+        ax.set_title(f'{country}',fontsize=14)
         ax.set_xticks(np.arange(1980,2026,5)) # set the xticks
         ax.legend(loc='best') #set the legend
         plt.savefig(f'fit_curve_prediction_{country}.png') # save fig
@@ -349,7 +349,7 @@ if __name__ == '__main__':
     #defining the numeric columns
     numeric_columns = normalized_data.columns[1:]
     #getting the optimal number of clusters
-    silhoute_Score(normalized_data[numeric_columns])
+    num_of_Clusters(normalized_data[numeric_columns])
     # defining the number of clusters
     num_clusters = 3
     # perform clustering
