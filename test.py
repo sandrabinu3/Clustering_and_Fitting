@@ -1,8 +1,3 @@
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy.optimize import curve_fit
-from scipy.stats import sem
-
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -54,7 +49,7 @@ def read_file_and_process_data(filename):
     return df_years, df_countries
 
 
-def subset_data_by_countries_and_indicators(df_years, countries, indicators):
+def clean_and_transposed_df(df_years, countries, indicators):
     """
     Subsets data based on selected countries and indicators.
 
@@ -68,8 +63,132 @@ def subset_data_by_countries_and_indicators(df_years, countries, indicators):
     """
     years = list(range(1980, 2014))
     df_subset = df_years.loc[(countries, indicators), years]
+    # transpose the cleaned df
     df_subset = df_subset.transpose()
     return df_subset
+
+
+def normalize_dataframe(df):
+    """
+    Normalizes the values of a dataframe.
+
+    Parameters:
+    - df (pd.DataFrame): Dataframe to be normalized.
+
+    Returns:
+    - df_normalized (pd.DataFrame): Normalized dataframe.
+    """
+    scaler = StandardScaler()
+    df_normalized = pd.DataFrame(scaler.fit_transform(df), columns=df.columns)
+    # print(df_normalized)
+    return df_normalized
+
+
+def plot_normalized_dataframe(df_normalized):
+    """
+    Plots a stacked bar chart of the normalized dataframe.
+
+    Parameters:
+    - df_normalized (pd.DataFrame): Normalized dataframe.
+
+    Returns:
+    - None
+    """
+    # Set Seaborn style
+    sns.set(style="whitegrid", palette="deep")
+
+    # Create a figure and axis
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    # Plot the data
+    df_normalized.plot(kind='bar', stacked=True, ax=ax)
+    years = np.arange(1980, 2015)
+
+    # Customize plot details
+    ax.set_xticks(np.arange(len(years)))
+    ax.set_xticklabels(years, rotation=45, ha='right')
+    ax.set_title('Stacked Bar Chart of Normalized Data', fontsize=16)
+    ax.set_xlabel('Year', fontsize=14)
+    ax.set_ylabel('Value', fontsize=14)
+
+    ax.grid(axis='y', linestyle='-', alpha=0.8)
+
+    # Remove top and right spines
+    sns.despine(top=True, right=True)
+
+    # Add legend
+    ax.legend(title='Legend', title_fontsize='12', fontsize='10', loc='upper left', bbox_to_anchor=(1, 1))
+
+    plt.savefig('normailzed_plot.png')
+    # Show the plot
+    plt.show()
+
+def calculate_silhouette_score(df, cluster_labels):
+    """
+    Calculates the silhouette score for the clustering.
+
+    Parameters:
+    - df (pd.DataFrame): Dataframe for clustering.
+    - cluster_labels (np.array): Labels assigned to each data point.
+
+    Returns:
+    - silhouette_score (float): Silhouette score.
+    """
+    silhouette_avg = silhouette_score(df, cluster_labels)
+    print(f"Silhouette Score: {silhouette_avg}")
+    return silhouette_avg
+
+def perform_kmeans_clustering(num_clusters,df):
+    """
+    Performs K-Means clustering on the given dataframe.
+
+    Parameters:
+    - df (pd.DataFrame): Dataframe for clustering.
+    - num_clusters (int): Number of clusters.
+
+    Returns:
+    - cluster_labels (np.array): Labels assigned to each data point.
+    """
+    kmeans = KMeans(n_clusters=num_clusters, random_state=42)
+    print(df)
+    cluster_labels = kmeans.fit_predict(df)
+    cluster_centers = kmeans.cluster_centers_
+
+    return cluster_labels,cluster_centers
+
+
+def plot_clustered_data(df, cluster_labels, cluster_centers):
+    """
+    Plots the clustered data.
+
+    Parameters:
+    - df (pd.DataFrame): Dataframe for clustering.
+    - cluster_labels (np.array): Labels assigned to each data point.
+    - cluster_centers (np.array): Coordinates of cluster centers.
+
+    Returns:
+    - None
+    """
+    plt.style.use('seaborn')
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+    scatter = ax.scatter(df.iloc[:, 0], df.iloc[:, 1],
+                         c=cluster_labels, cmap='viridis')
+
+    ax.scatter(cluster_centers[:, 0], cluster_centers[:,
+               1], s=200, marker='2', c='black')
+
+    ax.set_xlabel(df.columns[0], fontsize=12)
+    ax.set_ylabel(df.columns[1], fontsize=12)
+    ax.set_title("K-Means Clustering Results", fontsize=14)
+
+    ax.grid(True)
+    ax.set_xlabel('Electricity production from hydroelectric sources (% of total)')
+    ax.set_ylabel('Electricity production from coal sources (% of total)')
+    plt.colorbar(scatter)
+    plt.savefig('Clusters.png')
+    plt.show()
+
 
 def filter_energy_use_data(filename, countries, indicators, start_year, end_year):
     """
@@ -106,15 +225,47 @@ def filter_energy_use_data(filename, countries, indicators, start_year, end_year
 
 
 def exponential_growth_function(x, a, b):
+    """
+    Exponential growth function.
+
+    Parameters:
+    - x (array): Input values.
+    - a (float): Growth parameter.
+    - b (float): Exponential growth rate.
+
+    Returns:
+    - y (array): Output values.
+    """
     return a * np.exp(b * x)
 
-def calculate_error_ranges(x, y, popt, pcov):
-    perr = np.sqrt(np.diag(pcov))
-    return perr * sem(y)
 
-def predict_future_values(energy_use_data, countries, indicators, start_year, end_year):
+def calculate_error_ranges(xdata, ydata, popt, pcov, alpha=0.05):
     """
-    Predicts future values using exponential growth fitting.
+    Calculates error ranges for curve fitting parameters.
+
+    Parameters:
+    - xdata (array): Input values.
+    - ydata (array): Observed output values.
+    - popt (array): Optimal values for the parameters so that the sum of the squared residuals is minimized.
+    - pcov (2D array): The estimated covariance of popt.
+    - alpha (float): Significance level.
+
+    Returns:
+    - ci (array): Confidence intervals for the parameters.
+    """
+    n = len(ydata)
+    m = len(popt)
+    df = max(0, n - m)
+    tval = -1 * stats.t.ppf(alpha / 2, df)
+    residuals = ydata - exponential_growth_function(xdata, *popt)
+    stdev = np.sqrt(np.sum(residuals**2) / df)
+    ci = tval * stdev * np.sqrt(1 + np.diag(pcov))
+    return ci
+
+
+def predict_future_values(energy_use_data, countries, indicators, start_year, end_year, prediction_years):
+    """
+    Predicts and plots future values using exponential growth fitting.
 
     Parameters:
     - energy_use_data (pd.DataFrame): Processed energy use data.
@@ -122,90 +273,99 @@ def predict_future_values(energy_use_data, countries, indicators, start_year, en
     - indicators (list): List of indicator names.
     - start_year (int): Start year for prediction.
     - end_year (int): End year for prediction.
+    - prediction_years (list): Years for which to predict values.
 
     Returns:
     - None
     """
-    data = filter_energy_use_data(energy_use_data, countries,
-                                  indicators, start_year, end_year)
-    
+    data = filter_energy_use_data(energy_use_data, countries, indicators, start_year, end_year)
+
+    growth_rate = np.zeros(data.shape)
     for i in range(data.shape[0]):
-        country = data.index.get_level_values('Country')[i]
-        indicator = data.index.get_level_values('Indicator Name')[i]
+        popt, pcov = curve_fit(
+            exponential_growth_function, np.arange(data.shape[1]), data.iloc[i])
 
-        x = np.arange(data.shape[1])
-        y = data.iloc[i]
+        ci = calculate_error_ranges(
+            np.arange(data.shape[1]), data.iloc[i], popt, pcov)
+        growth_rate[i] = popt[1]
 
-        popt, pcov = curve_fit(exponential_growth_function, x, y)
-        growth_rate = popt[1]
-
-        ci = calculate_error_ranges(x, y, popt, pcov)
-
-        # Predict future values
-        future_x = np.arange(start_year, end_year+1)
-        future_y = predict_with_confidence_intervals(exponential_growth_function, popt, pcov, future_x)
-
-
-        print(f"\nCountry: {country}")
-        print(f"Indicator: {indicator}")
+        # Print the values
+        print(f"\nCountry: {data.index.get_level_values('Country')[i]}")
+        print(f"Indicator: {data.index.get_level_values('Indicator Name')[i]}")
         print("Fitted Parameters (popt):", popt)
         print("Covariance Matrix (pcov):", pcov)
         print("Confidence Intervals (ci):", ci)
-        print("Future Predictions:")
-        print(f"Year\tValue\tConfidence Interval")
-        for j in range(len(future_x)):
-            print(f"{future_x[j]}\t{future_y[j]:.2f}\t[{future_ci[j][0]:.2f}, {future_ci[j][1]:.2f}]")
 
-        # Plotting
-        plt.plot(x, y, label=country)
-        plt.fill_between(x, y - ci, y + ci, color='gray', alpha=0.2, label='Confidence Interval')
-        plt.plot(future_x, future_y, '--', label=f"Prediction ({growth_rate:.2f})")
+    future_years = np.arange(start_year, end_year+1)
+    extended_years = np.arange(start_year, 2026)  # Extend prediction to 2030
 
-    plt.xlabel('Year')
-    plt.ylabel('Indicator Value')
-    plt.title(', '.join(indicators))
-    plt.legend(loc='best')
+    fig, ax = plt.subplots()
+    for i in range(data.shape[0]):
+        country = data.index.get_level_values('Country')[i]
+        indicator = data.index.get_level_values('Indicator Name')[i]
+        repeated_ci = np.repeat(ci, data.shape[1] // len(ci) + 1)[:data.shape[1]]
+
+        # Plot historical data
+        ax.plot(future_years, data.loc[(country, indicator)],
+                label=f"{country} - Historical", linestyle='-', marker='o')
+
+        # Predict and plot future values with confidence interval
+        predicted_values = exponential_growth_function(extended_years - start_year, *popt)
+        print(predicted_values)
+        repeated_ci = np.repeat(ci, len(extended_years))[:len(predicted_values)]  # Adjust the length of repeated_ci
+        lower_bound = predicted_values - repeated_ci
+        upper_bound = predicted_values + repeated_ci
+        ax.plot(extended_years, predicted_values,
+                label=f"{country} - Predicted", linestyle='--', marker='x',color='indigo')
+        ax.fill_between(extended_years, lower_bound, upper_bound,
+                color='yellow', alpha=0.2, label='Confidence Interval')
+        
+        point_at_2025 = predicted_values[-1]
+        ax.scatter(2025, point_at_2025, color='green', marker='o')
+        ax.annotate(f'{point_at_2025:.2f}', (2025, point_at_2025),
+                    textcoords="offset points", xytext=(0,10), ha='center')
+    ax.set_xlabel('Year')
+    ax.set_ylabel('Electricity production from hydro (%)')
+    ax.set_title(', '.join(indicators))
+    ax.set_xticks(np.arange(1980,2026,5))
+    ax.legend(loc='best')
+    plt.savefig('fit_curve_prediction.png')
     plt.show()
 
-def predict_with_confidence_intervals(func, popt, pcov, x):
-    """
-    Predicts values with confidence intervals.
-    """
-    perr = np.sqrt(np.diag(pcov))
-    ci = perr * sem(x)
-    y = func(x, *popt)
-    return y, ci
 
-predict_future_values(r"climate_change_wbdata (1).csv", [
-                        'India', 'European Union', 'United States', 'Canada'], ['Electricity production from hydroelectric sources (% of total)'], 1980, 2030)
 
-def plot_correlation_heatmap(df, size=6):
-    """
-    Plots a correlation heatmap for the given dataframe.
 
-    Parameters:
-    - df (pd.DataFrame): Dataframe for correlation analysis.
-    - size (int): Size of the heatmap.
+def main():
+    df_years, df_countries = read_file_and_process_data(
+        r"climate_change_wbdata (1).csv")
 
-    Returns:
-    - None
-    """
-    corr = df.corr()
+    selected_indicators = [
+        'Electricity production from hydroelectric sources (% of total)', 'Electricity production from coal sources (% of total)']
+    selected_countries = ['India']
+    selected_data = clean_and_transposed_df(
+        df_years, selected_countries, selected_indicators)
+    normalized_data = normalize_dataframe(selected_data)
+
     
-    # Print the correlation matrix values
-    print("Correlation Matrix:")
-    print(corr)
 
-    fig, ax = plt.subplots(figsize=(size, size))
-    im = ax.matshow(corr, cmap='ocean_r')
+    num_clusters = 3
+    cluster_labels,cluster_centers=perform_kmeans_clustering(num_clusters,normalized_data)
 
-    ax.set_xticks(range(len(corr.columns)))
-    ax.set_xticklabels(corr.columns, rotation=90)
-    ax.set_yticks(range(len(corr.columns)))
-    ax.set_yticklabels(corr.columns)
+    print("Cluster Centers:")
+    print(cluster_centers)
+    plot_clustered_data(normalized_data, cluster_labels, cluster_centers)
 
-    cbar = fig.colorbar(im)
+    predict_future_values(r"climate_change_wbdata (1).csv",
+                      ['India'],
+                      ['Electricity production from hydroelectric sources (% of total)'],
+                      1980, 2014, range(2015, 2026))
 
-    ax.set_title('Correlation Heatmap of selected countries')
+    plot_normalized_dataframe(normalized_data)
 
-    plt.tight_layout()
+
+if __name__ == '__main__':
+    if os.name == 'posix':
+        os.environ['OMP_NUM_THREADS'] = '1'
+    elif os.name == 'nt':
+        os.environ['OMP_NUM_THREADS'] = '1'
+    main()
